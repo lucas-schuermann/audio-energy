@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<htmL>
+	<body>
+		<title>Music game</title>
+		<link rel="stylesheet" href="style.css">
+	</body>
+	<head>
+		<input id="input" type="file" accept="audio/*">
+		<canvas id="visualizer" width="640" height="480"></canvas>
+
+		<script src="dsp.js"></script>
+		<script>
+			// Create an audio context and source node
+			var audioContext = new AudioContext();
+			var audioBufferSourceNode = audioContext.createBufferSource();
+			var startTime = 0;
+
+			// Create a file reader and extract audio samples
+			var fileReader = new FileReader();
+			var decodeSuccessCallback = function(audioBuffer) {
+				// Send audio samples to processor
+				process(audioBuffer.getChannelData(0), audioBuffer.sampleRate);
+
+				// Play audio
+				audioBufferSourceNode.disconnect();
+				audioBufferSourceNode = audioContext.createBufferSource();
+				audioBufferSourceNode.buffer = audioBuffer;
+				audioBufferSourceNode.connect(audioContext.destination);
+				audioBufferSourceNode.start();
+
+				// Record current time as audio start time
+				startTime = audioContext.currentTime;
+			};
+			var decodeErrorCallback = function() {
+				console.log('Error decoding audio data');
+			};
+			fileReader.addEventListener('load', function() {
+				// Extract audio samples
+				var arrayBuffer = fileReader.result;
+				audioContext.decodeAudioData(arrayBuffer, decodeSuccessCallback, decodeErrorCallback);
+			});
+			fileReader.addEventListener('error', function() {
+				console.log('Error reading file');
+			});
+
+			// Set action for input element on input change
+			var input = document.getElementById('input');
+			input.addEventListener('change', function() {
+				fileReader.readAsArrayBuffer(input.files[0]);
+			});
+
+			var frameSize = 1024;
+			var frameOffset = 512;
+
+			// Process audio samples
+			var process = function(samples, sampleRate) {
+				// Create FFT analyser
+				var fft = new FFT(frameSize, sampleRate);
+
+				// Calculate sound energies for each frame
+				var energies = [];
+				var lowFreqEnergies = [];
+				for (var sample = 0; sample < samples.length - frameSize; sample += frameOffset) {
+					// Get samples for this frame
+					var frameSamples = samples.slice(sample, sample + frameSize);
+
+					// Record energy for this frame
+					var energy = getEnergy(frameSamples);
+					energies.push(energy);
+
+					// Get FFT of frame samples
+					fft.forward(frameSamples);
+					// Record energy for this frame for low frequencies
+					var lowFrequencies = fft.spectrum.slice(0, 10);
+					var lowFreqEnergy = getEnergy(lowFrequencies);
+					lowFreqEnergies.push(lowFreqEnergy * 1000);
+				}
+
+				// Plot energy levels
+				graphs.push({data: energies, color: '#f00'});
+				graphs.push({data: getMovingAverage(energies, 4), color: '#800'});
+				graphs.push({data: getMovingMaximum(energies, 8), color: '#f88'});
+
+				// Calculate changes in energy levels
+				var powers = getDifference(energies);
+				graphs.push({data: powers, color: '#00f'});
+				graphs.push({data: getMovingAverage(powers, 4), color: '#008'});
+				graphs.push({data: getMovingMaximum(powers, 8), color: '#88f'});
+
+				// Plot energy levels for low frequencies
+				graphs.push({data: lowFreqEnergies, color: '#fa0'});
+
+				render();
+			};
+
+			// Calculate the squared amplitude (energy)
+			var getEnergy = function(data) {
+				var result = 0;
+				for (var i = 0; i < data.length; ++i) {
+					result += data[i] * data[i];
+				}
+				return result;
+			};
+
+			// Calculate the moving average with a specified range
+			var getMovingAverage = function(data, range) {
+				var result = new Float32Array(data.length);
+				for (var i = 0; i < data.length; ++i) {
+					var start = Math.max(0, i - range);
+					var end = Math.min(data.length - 1, i + range);
+					var sum = 0;
+					for (var j = start; j <= end; ++j) {
+						sum += data[j];
+					}
+					result[i] = sum / (end - start + 1);
+				}
+				return result;
+			};
+
+			// Calculate the moving maximum with a specified range
+			var getMovingMaximum = function(data, range) {
+				var result = new Float32Array(data.length);
+				for (var i = 0; i < data.length; ++i) {
+					var start = Math.max(0, i - range);
+					var end = Math.min(data.length - 1, i + range);
+					var max = Number.NEGATIVE_INFINITY;
+					for (var j = start; j <= end; ++j) {
+						if (data[j] > max) {
+							max = data[j];
+						}
+					}
+					result[i] = max;
+				}
+				return result;
+			};
+
+			// Calculate the first order discrete difference
+			var getDifference = function(data) {
+				var result = new Float32Array(data.length - 1);
+				for (var i = 0; i < data.length - 1; ++i) {
+					result[i] = data[i + 1] - data[i];
+				}
+				return result;
+			};
+
+			// Get the visualizer element
+			var visualizer = document.getElementById('visualizer');
+			var visualizerContext = visualizer.getContext('2d');
+
+			var graphs = [];
+			var render = function() {
+				// Schedule next animation frame
+				requestAnimationFrame(render);
+
+				// Clear visualizer and draw visualizer outline
+				visualizerContext.setTransform(1, 0, 0, 1, 0, 0);
+				visualizerContext.clearRect(0, 0, visualizer.width, visualizer.height);
+				visualizerContext.strokeStyle = 'black';
+				visualizerContext.strokeRect(0, 0, visualizer.width, visualizer.height);
+
+				// Find current frame in audio based on elapsed time
+				var secondsElapsed = audioContext.currentTime - startTime;
+				var currentSample = audioContext.sampleRate * secondsElapsed;
+				var currentFrame = currentSample / frameOffset;
+
+				// Adjust zoom level for visualizerion
+				var zoom = 1;
+				visualizerContext.translate(-currentFrame * zoom, visualizer.height);
+				visualizerContext.scale(zoom, -1);
+
+				// Plot graphs
+				for (var i = 0; i < graphs.length; ++i) {
+					var data = graphs[i].data;
+					visualizerContext.beginPath();
+					visualizerContext.moveTo(0, data[0]);
+					for (var j = 1; j < data.length; ++j) {
+						visualizerContext.lineTo(j, data[j]);
+					}
+					visualizerContext.strokeStyle = graphs[i].color;
+					visualizerContext.stroke();
+				}
+			};
+		</script>
+	</head>
+</htmL>
