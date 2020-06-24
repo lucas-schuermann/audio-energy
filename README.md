@@ -1,10 +1,10 @@
 # audio-energy
 
-## License
-[MIT](https://lucasschuermann.com/license.txt)
-
 ## Code
 See `index.html`
+
+## License
+[MIT](https://lucasschuermann.com/license.txt)
 
 ## Running
 - Open demo in *Chrome*
