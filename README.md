@@ -1,3 +1,8 @@
+# audio-energy
+
+## License
+[MIT](https://lucasschuermann.com/license.txt)
+
 ## Code
 See `index.html`
 
