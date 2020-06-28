@@ -1,4 +1,6 @@
 # audio-energy
+Audio spectral energy visualization towards onset detection
+
 [Demo](https://cerrno.github.io/audio-energy/)
 
 ## Code
