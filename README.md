@@ -7,7 +7,7 @@ Audio spectral energy visualization towards onset detection
 See `index.html`
 
 ## Running
-- Open demo in *Chrome*
+- Open demo in *Chrome 93* or newer
 - Select .mp3 file or use the local default
 - Examine visualization
 
