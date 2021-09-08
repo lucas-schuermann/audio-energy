@@ -6,9 +6,6 @@ Audio spectral energy visualization towards onset detection
 ## Code
 See `index.html`
 
-## License
-[MIT](https://lucasschuermann.com/license.txt)
-
 ## Running
 - Open demo in *Chrome*
 - Select .mp3 file or use the local default
